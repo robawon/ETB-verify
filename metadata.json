@@ -1,0 +1,6 @@
+{
+  "name": "ETB verify",
+  "description": "AI-powered Ethiopian currency authentication, counterfeit reporting, and crime intelligence platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
