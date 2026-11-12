@@ -22,12 +22,17 @@ data class ClassificationResult(
     val locationName: String = "Addis Ababa Central",
     val verifiedSecurityFeaturesCount: Int = 8,
     val rawLabel: String = label,
-    val allProbabilities: Map<String, Float> = emptyMap()
+    val allProbabilities: Map<String, Float> = emptyMap(),
+    val isUncertain: Boolean = false,
+    val uncertainReason: String = ""
 ) {
     val formattedLabel: String
         get() = formatModelLabel(rawLabel.ifEmpty { label })
 }
 
+/**
+ * Formats a raw model label into a user-friendly readable string.
+ */
 fun formatModelLabel(raw: String): String {
     return when (raw.lowercase().trim()) {
         "genuine_200_etb" -> "Genuine 200 ETB"

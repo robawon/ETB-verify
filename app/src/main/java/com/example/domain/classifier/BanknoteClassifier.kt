@@ -18,6 +18,7 @@ class BanknoteClassifier(private val context: Context) {
     companion object {
         private const val TAG = "BanknoteClassifier"
         const val INPUT_SIZE = 224
+        const val MIN_CONFIDENCE = 0.80f
         val CLASSES = listOf(
             "genuine_200_etb",
             "counterfeit_200_etb",
@@ -30,6 +31,9 @@ class BanknoteClassifier(private val context: Context) {
         initInterpreter()
     }
 
+    /**
+     * Initializes the TFLite interpreter by loading the model file from assets.
+     */
     private fun initInterpreter() {
         try {
             val assetFileDescriptor = context.assets.openFd(modelFileName)
@@ -45,16 +49,25 @@ class BanknoteClassifier(private val context: Context) {
             interpreter = Interpreter(modelBuffer, options)
             Log.i(TAG, "DenseNet121 TFLite Model loaded successfully from assets: $modelFileName")
         } catch (e: Exception) {
-            Log.e(TAG, "Could not initialize TFLite model from assets, fallback heuristic enabled", e)
+            Log.e(TAG, "Could not initialize TFLite model from assets", e)
         }
     }
 
+    /**
+     * Returns whether the TFLite model interpreter is successfully loaded.
+     */
     fun isModelLoaded(): Boolean = interpreter != null
 
+    /**
+     * Classifies the provided bitmap using the TFLite model, returning genuine, counterfeit, or uncertain result.
+     */
     fun classifyBanknote(bitmap: Bitmap, targetDenomination: Int = 0): ClassificationResult {
         val inter = interpreter
         if (inter == null) {
-            return generateHeuristicResult(targetDenomination)
+            return uncertainResult(
+                reason = "The AI model file is missing from this build, so the note cannot be checked.",
+                denomination = targetDenomination
+            )
         }
 
         return try {
@@ -105,15 +118,19 @@ class BanknoteClassifier(private val context: Context) {
             val predictedLabel = CLASSES[maxIndex]
             val isGenuine = predictedLabel.startsWith("genuine")
             val denomination = if (predictedLabel.contains("200")) 200 else 100
-            val normalizedConfidence = maxProb.coerceIn(0.65f, 0.999f)
+
+            if (maxProb < MIN_CONFIDENCE) {
+                val pct = (maxProb * 100).toInt()
+                return uncertainResult(
+                    reason = "Only $pct% sure. Put the note flat, use good light, and fill the frame.",
+                    denomination = denomination,
+                    confidence = maxProb,
+                    probabilities = probMap
+                )
+            }
 
             val defects = if (!isGenuine) {
-                listOf(
-                    "Missing micro-metallic security thread",
-                    "Watermark lacks intaglio gradation profile",
-                    "UV Fluorescent pigment missing on serial numbers",
-                    "Substrate fails crisp cotton-linen acoustic test"
-                )
+                listOf("AI model found visual patterns that do not match a genuine note")
             } else {
                 emptyList()
             }
@@ -122,19 +139,27 @@ class BanknoteClassifier(private val context: Context) {
                 label = predictedLabel,
                 isGenuine = isGenuine,
                 denomination = denomination,
-                confidence = normalizedConfidence,
-                serialNumber = if (isGenuine) "FJ 0302758" else "BD1029384",
+                confidence = maxProb,
+                serialNumber = "",
                 defects = defects,
                 verifiedSecurityFeaturesCount = if (isGenuine) 8 else 2,
                 rawLabel = predictedLabel,
-                allProbabilities = probMap
+                allProbabilities = probMap,
+                isUncertain = false,
+                uncertainReason = ""
             )
         } catch (e: Exception) {
             Log.e(TAG, "Error running TFLite inference", e)
-            generateHeuristicResult(targetDenomination)
+            uncertainResult(
+                reason = "Something went wrong while analysing the photo. Please try again.",
+                denomination = targetDenomination
+            )
         }
     }
 
+    /**
+     * Computes the softmax probability distribution from raw model outputs.
+     */
     private fun softmax(values: FloatArray): FloatArray {
         var max = Float.NEGATIVE_INFINITY
         for (v in values) {
@@ -152,27 +177,34 @@ class BanknoteClassifier(private val context: Context) {
         return exp
     }
 
-    private fun generateHeuristicResult(targetDenomination: Int): ClassificationResult {
-        val denom = if (targetDenomination in listOf(100, 200)) targetDenomination else 200
-        val label = "genuine_${denom}_etb"
+    /**
+     * Creates an uncertain ClassificationResult with the given reason and metadata.
+     */
+    private fun uncertainResult(
+        reason: String,
+        denomination: Int = 0,
+        confidence: Float = 0f,
+        probabilities: Map<String, Float> = emptyMap()
+    ): ClassificationResult {
+        val denom = if (denomination in listOf(100, 200)) denomination else 200
         return ClassificationResult(
-            label = label,
-            isGenuine = true,
+            label = "uncertain",
+            isGenuine = false,
             denomination = denom,
-            confidence = 0.987f,
-            serialNumber = if (denom == 200) "FJ 0302758" else "EK7731902",
+            confidence = confidence,
+            serialNumber = "",
             defects = emptyList(),
-            verifiedSecurityFeaturesCount = 8,
-            rawLabel = label,
-            allProbabilities = mapOf(
-                "genuine_200_etb" to (if (denom == 200) 0.987f else 0.005f),
-                "counterfeit_200_etb" to 0.004f,
-                "genuine_100_etb" to (if (denom == 100) 0.987f else 0.005f),
-                "counterfeit_100_etb" to 0.004f
-            )
+            verifiedSecurityFeaturesCount = 0,
+            rawLabel = "uncertain",
+            allProbabilities = probabilities,
+            isUncertain = true,
+            uncertainReason = reason
         )
     }
 
+    /**
+     * Closes the TFLite interpreter and releases resources.
+     */
     fun close() {
         interpreter?.close()
         interpreter = null

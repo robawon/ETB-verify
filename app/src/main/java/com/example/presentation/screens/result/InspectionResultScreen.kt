@@ -33,6 +33,9 @@ import com.example.presentation.components.TopShieldBar
 import com.example.presentation.localization.LocalAppLanguage
 import com.example.ui.theme.*
 
+/**
+ * Composable screen displaying the detailed forensic audit and classification result for a scanned banknote.
+ */
 @Composable
 fun InspectionResultScreen(
     result: ClassificationResult,
@@ -478,7 +481,7 @@ fun InspectionResultScreen(
                                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text("SN: ${result.serialNumber}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Text("SN: ${result.serialNumber.ifBlank { "Not detected" }}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Color(0xFF00FF66), modifier = Modifier.size(12.dp))
                                         Spacer(modifier = Modifier.width(2.dp))
@@ -519,7 +522,7 @@ fun InspectionResultScreen(
                         ) {
                             Column {
                                 Text("IDENTIFIED SERIAL SERIES", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline, fontWeight = FontWeight.Bold)
-                                Text(result.serialNumber, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                                Text(result.serialNumber.ifBlank { "Not detected" }, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
                             }
 
                             if (isGenuine) {

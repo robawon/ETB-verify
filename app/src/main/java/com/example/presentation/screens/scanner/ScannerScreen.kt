@@ -67,6 +67,9 @@ data class SampleSpecimenItem(
     val drawableRes: Int
 )
 
+/**
+ * Composable screen for capturing or selecting banknotes to scan and inspect via AI classifier.
+ */
 @Composable
 fun ScannerScreen(
     classifier: BanknoteClassifier,
@@ -158,16 +161,23 @@ fun ScannerScreen(
         label = "alpha"
     )
 
-    // Helper: Run classification on given Bitmap
+    /**
+     * Processes the bitmap through the AI classifier and OCR, navigating to inspection results only if confident.
+     */
     fun processBitmap(bitmap: Bitmap, targetDenom: Int) {
         isAnalyzing = true
+        liveDetectedResult = null
         coroutineScope.launch(Dispatchers.IO) {
             val classification = classifier.classifyBanknote(
                 bitmap = bitmap,
                 targetDenomination = targetDenom
             )
 
-            val extractedSerial = serialOcr.extractSerialNumber(bitmap)
+            val extractedSerial = if (!classification.isUncertain) {
+                serialOcr.extractSerialNumber(bitmap)
+            } else {
+                ""
+            }
             val finalResult = classification.copy(serialNumber = extractedSerial)
 
             withContext(Dispatchers.Main) {
@@ -175,9 +185,31 @@ fun ScannerScreen(
                 // Brief pause so the user sees the predicted class label on the HUD
                 delay(700)
                 isAnalyzing = false
-                onInspectionResult(finalResult)
+                if (!finalResult.isUncertain) {
+                    onInspectionResult(finalResult)
+                }
             }
         }
+    }
+
+    /**
+     * Sets an uncertain result and stops analysis when camera capture fails.
+     */
+    fun showCaptureFailed() {
+        liveDetectedResult = ClassificationResult(
+            label = "uncertain",
+            isGenuine = false,
+            denomination = selectedDenom.value,
+            confidence = 0f,
+            serialNumber = "",
+            defects = emptyList(),
+            verifiedSecurityFeaturesCount = 0,
+            rawLabel = "uncertain",
+            allProbabilities = emptyMap(),
+            isUncertain = true,
+            uncertainReason = "The camera could not capture the note. Please try again."
+        )
+        isAnalyzing = false
     }
 
     // Photo Picker Launcher (Gallery import)
@@ -198,15 +230,21 @@ fun ScannerScreen(
         }
     }
 
-    // Real Camera capture trigger
+    /**
+     * Triggers live photo capture from the camera preview or handles simulator fallback.
+     */
     fun captureLivePhoto() {
         if (isAnalyzing) return
         val capture = imageCapture
         if (capture != null && hasCameraPermission) {
             isAnalyzing = true
+            liveDetectedResult = null
             capture.takePicture(
                 ContextCompat.getMainExecutor(context),
                 object : ImageCapture.OnImageCapturedCallback() {
+                    /**
+                     * Handles successful image capture by rotating and processing the bitmap.
+                     */
                     override fun onCaptureSuccess(imageProxy: ImageProxy) {
                         coroutineScope.launch(Dispatchers.IO) {
                             try {
@@ -226,16 +264,18 @@ fun ScannerScreen(
                                 processBitmap(rotatedBitmap, selectedDenom.value)
                             } catch (e: Exception) {
                                 imageProxy.close()
-                                val fallback = BitmapFactory.decodeResource(context.resources, R.drawable.sample_genuine_200)
-                                processBitmap(fallback, selectedDenom.value)
+                                withContext(Dispatchers.Main) {
+                                    showCaptureFailed()
+                                }
                             }
                         }
                     }
 
+                    /**
+                     * Handles image capture error by showing failure state.
+                     */
                     override fun onError(exception: ImageCaptureException) {
-                        // Fallback to sample specimen
-                        val fallback = BitmapFactory.decodeResource(context.resources, R.drawable.sample_genuine_200)
-                        processBitmap(fallback, selectedDenom.value)
+                        showCaptureFailed()
                     }
                 }
             )
@@ -473,42 +513,69 @@ fun ScannerScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     liveDetectedResult?.let { res ->
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (res.isGenuine) Color(0xDD004D1A) else Color(0xDDBA1A1A),
-                            border = androidx.compose.foundation.BorderStroke(1.5.dp, if (res.isGenuine) EthioGreenFixed else Color(0xFFFF8A80)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                        if (res.isUncertain) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color(0xDD7A5200),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, Color(0xFFFFC107)),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Column {
+                                Column(
+                                    modifier = Modifier.padding(12.dp)
+                                ) {
                                     Text(
-                                        text = "MODEL CLASS: ${res.formattedLabel}",
-                                        color = Color.White,
+                                        text = "UNABLE TO VERIFY",
+                                        color = Color(0xFFFFC107),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.ExtraBold
                                     )
+                                    Spacer(modifier = Modifier.height(4.dp))
                                     Text(
-                                        text = if (res.isGenuine) "VERIFIED GENUINE NOTE" else "FLAGGED COUNTERFEIT NOTE",
-                                        color = if (res.isGenuine) EthioGreenFixed else Color(0xFFFFCDD2),
+                                        text = res.uncertainReason,
+                                        color = Color.White,
                                         fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold
+                                        fontWeight = FontWeight.Normal
                                     )
                                 }
-                                Surface(
-                                    color = Color.White,
-                                    shape = RoundedCornerShape(10.dp)
+                            }
+                        } else {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = if (res.isGenuine) Color(0xDD004D1A) else Color(0xDDBA1A1A),
+                                border = androidx.compose.foundation.BorderStroke(1.5.dp, if (res.isGenuine) EthioGreenFixed else Color(0xFFFF8A80)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = "${(res.confidence * 100).toInt()}% Conf.",
-                                        color = if (res.isGenuine) EthioGreen else EthioRed,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 12.sp,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
+                                    Column {
+                                        Text(
+                                            text = "MODEL CLASS: ${res.formattedLabel}",
+                                            color = Color.White,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.ExtraBold
+                                        )
+                                        Text(
+                                            text = if (res.isGenuine) "VERIFIED GENUINE NOTE" else "FLAGGED COUNTERFEIT NOTE",
+                                            color = if (res.isGenuine) EthioGreenFixed else Color(0xFFFFCDD2),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Surface(
+                                        color = Color.White,
+                                        shape = RoundedCornerShape(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "${(res.confidence * 100).toInt()}% Conf.",
+                                            color = if (res.isGenuine) EthioGreen else EthioRed,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 12.sp,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
