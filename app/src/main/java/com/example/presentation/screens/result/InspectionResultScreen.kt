@@ -32,6 +32,12 @@ import com.example.domain.model.formatModelLabel
 import com.example.presentation.components.TopShieldBar
 import com.example.presentation.localization.LocalAppLanguage
 import com.example.ui.theme.*
+import android.widget.Toast
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import com.example.presentation.voice.VerdictSpeaker
+import com.example.presentation.voice.buildSpokenVerdict
 
 /**
  * Composable screen displaying the detailed forensic audit and classification result for a scanned banknote.
@@ -47,6 +53,19 @@ fun InspectionResultScreen(
     val langManager = LocalAppLanguage.current
     val isAm = langManager.isAmharic()
     val isGenuine = result.isGenuine
+    // Voice: reads the verdict aloud when the page opens
+    val speaker = remember {
+        VerdictSpeaker(context) {
+            Toast.makeText(
+                context,
+                "Amharic voice is not installed on this phone. Using English.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+    val spoken = remember(result) { buildSpokenVerdict(result) }
+    LaunchedEffect(result) { speaker.speak(spoken, isAm) }
+    DisposableEffect(Unit) { onDispose { speaker.shutdown() } }
 
     Scaffold(
         topBar = {
@@ -126,6 +145,19 @@ fun InspectionResultScreen(
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.outline
                     )
+                }
+            }
+
+            // Voice Playback Button
+            item {
+                OutlinedButton(
+                    onClick = { speaker.speak(spoken, isAm) },
+                    modifier = Modifier.fillMaxWidth().testTag("listen_to_result_button"),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = if (isAm) "ውጤቱን ያዳምጡ" else "Listen to result")
                 }
             }
 
