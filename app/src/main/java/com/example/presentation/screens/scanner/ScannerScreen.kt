@@ -51,12 +51,19 @@ import com.example.domain.model.Denomination
 import com.example.domain.model.formatModelLabel
 import com.example.domain.ocr.BanknoteSerialOcr
 import com.example.presentation.components.BottomShieldNavigation
+import com.example.presentation.components.PermissionNotice
+import com.example.presentation.components.openAppSettings
 import com.example.presentation.localization.LocalAppLanguage
 import com.example.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import android.app.Activity
+import androidx.core.app.ActivityCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 data class SampleSpecimenItem(
     val titleEn: String,
@@ -133,17 +140,46 @@ fun ScannerScreen(
             ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
         )
     }
+    // True once the user has answered the system prompt with "deny"
+    var cameraDenied by remember { mutableStateOf(false) }
+    // True when Android will no longer show the prompt, so only Settings can fix it
+    var cameraPermanentlyDenied by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         hasCameraPermission = isGranted
+        if (!isGranted) {
+            cameraDenied = true
+            val activity = context as? Activity
+            cameraPermanentlyDenied = activity != null &&
+                    !ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.CAMERA)
+        }
     }
 
     LaunchedEffect(Unit) {
         if (!hasCameraPermission) {
             permissionLauncher.launch(Manifest.permission.CAMERA)
         }
+    }
+
+    // Re-check the permission when the user returns, for example from Settings
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val granted = ContextCompat.checkSelfPermission(
+                    context, Manifest.permission.CAMERA
+                ) == PackageManager.PERMISSION_GRANTED
+                hasCameraPermission = granted
+                if (granted) {
+                    cameraDenied = false
+                    cameraPermanentlyDenied = false
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     var cameraControl by remember { mutableStateOf<CameraControl?>(null) }
@@ -279,6 +315,9 @@ fun ScannerScreen(
                     }
                 }
             )
+        } else if (!hasCameraPermission) {
+            // No camera access: don't analyze a sample note as if it were a real scan
+            cameraDenied = true
         } else {
             // Simulator fallback
             val specimenRes = if (selectedDenom == Denomination.ETB_100) R.drawable.sample_genuine_100 else R.drawable.sample_genuine_200
@@ -342,6 +381,30 @@ fun ScannerScreen(
                         previewView
                     },
                     modifier = Modifier.fillMaxSize()
+                )
+            } else if (cameraDenied) {
+                PermissionNotice(
+                    title = if (isAm) "ካሜራ ያስፈልጋል" else "Camera access needed",
+                    message = if (isAm) {
+                        "ብሩን ለመፈተሽ ካሜራ ያስፈልጋል። የናሙና ብሮችን መሞከር ወይም ከጋለሪ ፎቶ መጫን ይችላሉ።"
+                    } else {
+                        "ETB Verify uses the camera to scan and check banknotes. You can still try the test specimens or upload a photo from your gallery."
+                    },
+                    buttonText = if (cameraPermanentlyDenied) {
+                        if (isAm) "ቅንብሮችን ክፈት" else "Open Settings"
+                    } else {
+                        if (isAm) "ድጋሚ ሞክር" else "Try again"
+                    },
+                    onButtonClick = {
+                        if (cameraPermanentlyDenied) {
+                            openAppSettings(context)
+                        } else {
+                            permissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .padding(horizontal = 24.dp)
                 )
             }
 
