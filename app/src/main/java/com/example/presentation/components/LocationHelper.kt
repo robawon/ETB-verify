@@ -16,6 +16,10 @@ import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 
 enum class LocationPermissionStatus { GRANTED, DENIED, PERMANENTLY_DENIED }
 
@@ -37,18 +41,22 @@ fun rememberLocationPermissionRequester(
     onResult: (LocationPermissionStatus) -> Unit
 ): () -> Unit {
     val context = LocalContext.current
+    // Android stops showing the prompt after the second denial, so we count them
+    var denialCount by remember { mutableIntStateOf(0) }
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
         val granted = results.values.any { it }
         val status = if (granted) {
+            denialCount = 0
             LocationPermissionStatus.GRANTED
         } else {
+            denialCount++
             val activity = context as? Activity
             val canAskAgain = activity != null &&
                     (ActivityCompat.shouldShowRequestPermissionRationale(activity, FINE) ||
                             ActivityCompat.shouldShowRequestPermissionRationale(activity, COARSE))
-            if (canAskAgain) LocationPermissionStatus.DENIED
+            if (canAskAgain && denialCount < 2) LocationPermissionStatus.DENIED
             else LocationPermissionStatus.PERMANENTLY_DENIED
         }
         onResult(status)
