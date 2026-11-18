@@ -9,6 +9,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.rememberNavController
 import com.example.data.local.AppDatabase
 import com.example.data.repository.IntelligenceRepository
@@ -19,6 +20,12 @@ import com.example.presentation.localization.LocalAppLanguage
 import com.example.presentation.localization.LocalizationManager
 import com.example.presentation.navigation.AppNavHost
 import com.example.ui.theme.ETBVerifyTheme
+import com.tomtom.sdk.common.configuration.buildSdkConfiguration
+import com.tomtom.sdk.init.TomTomSdk
+import com.tomtom.sdk.telemetry.UserConsent
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import android.util.Log
 
 class MainActivity : ComponentActivity() {
 
@@ -34,6 +41,28 @@ class MainActivity : ComponentActivity() {
         val intelligenceRepository = IntelligenceRepository()
         classifier = BanknoteClassifier(applicationContext)
         serialOcr = BanknoteSerialOcr()
+
+        // Start the TomTom SDK once, off the main thread
+        lifecycleScope.launch(Dispatchers.Default) {
+            try {
+                if (!TomTomSdk.isInitialized) {
+                    val sdkConfiguration = buildSdkConfiguration(
+                        context = application,
+                        apiKey = BuildConfig.TOMTOM_API_KEY,
+                        telemetryUserConsent = { UserConsent.TelemetryOff },
+                    )
+                    TomTomSdk.initialize(
+                        context = application,
+                        sdkConfiguration = sdkConfiguration,
+                    )
+                }
+                Log.d(
+                    "TomTomCheck",
+                    "TomTom initialized = ${TomTomSdk.isInitialized}, key length = ${BuildConfig.TOMTOM_API_KEY.length}"
+                )            } catch (e: Exception) {
+                Log.e("TomTomCheck", "TomTom init failed", e)
+            }
+        }
 
         setContent {
             val localizationManager = remember { LocalizationManager() }
