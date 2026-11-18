@@ -40,6 +40,7 @@ import com.example.presentation.components.openAppSettings
 import com.example.presentation.components.rememberLocationPermissionRequester
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import com.example.presentation.components.TomTomMapView
 
 @Composable
 fun FraudMapScreen(
@@ -294,6 +295,12 @@ fun FraudMapScreen(
                             Text("Bole: 2 Reports", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                     }
+                    // Real TomTom map (centred on the user's GPS position when known)
+                    TomTomMapView(
+                        centerLat = myLocation?.first ?: 9.0320,
+                        centerLng = myLocation?.second ?: 38.7420,
+                        modifier = Modifier.fillMaxSize()
+                    )
 
                     // Floating Controls on Right Side (Layers, GPS, Traffic Light)
                     Column(

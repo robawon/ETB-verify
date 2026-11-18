@@ -14,7 +14,11 @@ android {
 
   defaultConfig {
     applicationId = "com.aistudio.counterwatch.etbcv"
-    minSdk = 24
+    minSdk = 26
+    ndk {
+      abiFilters += listOf("arm64-v8a", "x86_64")
+    }
+    missingDimensionStrategy("tomtom-sdk-version", "complete")
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
@@ -137,6 +141,9 @@ dependencies {
   implementation(libs.okhttp)
   implementation(libs.play.services.location)
   implementation(libs.retrofit)
+  implementation("com.tomtom.sdk:init:2.7.2")
+  implementation("com.tomtom.sdk.maps:map-display-compose-premium:2.7.2")
+  implementation("androidx.appcompat:appcompat:1.7.0")
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
