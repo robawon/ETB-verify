@@ -37,6 +37,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -76,12 +80,19 @@ fun ScannerScreen(
     serialOcr: BanknoteSerialOcr,
     onBackClick: () -> Unit,
     onNavigate: (String) -> Unit,
-    onInspectionResult: (ClassificationResult) -> Unit
+    onInspectionResult: (ClassificationResult) -> Unit,
+    onBatchScanSaved: (ClassificationResult) -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val langManager = LocalAppLanguage.current
     val isAm = langManager.isAmharic()
+
+    val haptic = LocalHapticFeedback.current
+    var batchMode by remember { mutableStateOf(false) }
+    val batchEntries = remember { mutableStateListOf<BatchEntry>() }
+    var showBatchSummary by remember { mutableStateOf(false) }
+    var needsRearm by remember { mutableStateOf(false) }
 
     var selectedDenom by remember { mutableStateOf(Denomination.ETB_200) }
     var isFlashOn by remember { mutableStateOf(false) }
@@ -162,7 +173,23 @@ fun ScannerScreen(
     )
 
     /**
-     * Processes the bitmap through the AI classifier and OCR, navigating to inspection results only if confident.
+     * Adds a scanned result to the batch entries, detecting whether the serial number is repeated.
+     */
+    fun addToBatch(result: ClassificationResult) {
+        val serial = result.serialNumber.trim()
+        val isRepeated = serial.isNotBlank() && batchEntries.any { it.serial.trim().equals(serial, ignoreCase = true) }
+        val entry = BatchEntry(
+            denomination = result.denomination,
+            isGenuine = result.isGenuine,
+            confidence = result.confidence,
+            serial = result.serialNumber,
+            isRepeatedSerial = isRepeated
+        )
+        batchEntries.add(entry)
+    }
+
+    /**
+     * Processes the bitmap through the AI classifier and OCR, handling batch mode or single inspection results.
      */
     fun processBitmap(bitmap: Bitmap, targetDenom: Int) {
         isAnalyzing = true
@@ -185,8 +212,18 @@ fun ScannerScreen(
                 // Brief pause so the user sees the predicted class label on the HUD
                 delay(700)
                 isAnalyzing = false
+                needsRearm = true
+
                 if (!finalResult.isUncertain) {
-                    onInspectionResult(finalResult)
+                    if (batchMode) {
+                        addToBatch(finalResult)
+                        onBatchScanSaved(finalResult)
+                        if (!finalResult.isGenuine) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    } else {
+                        onInspectionResult(finalResult)
+                    }
                 }
             }
         }
@@ -285,6 +322,84 @@ fun ScannerScreen(
             val sampleBitmap = BitmapFactory.decodeResource(context.resources, specimenRes)
             processBitmap(sampleBitmap, selectedDenom.value)
         }
+    }
+
+    if (showBatchSummary) {
+        val summary = summarizeBatch(batchEntries)
+        AlertDialog(
+            onDismissRequest = { showBatchSummary = false },
+            title = {
+                Text(
+                    text = if (isAm) "የኖቶች ማጠቃለያ" else "Batch summary",
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .heightIn(max = 240.dp)
+                ) {
+                    Text(
+                        text = if (isAm) "የተቃኙ ኖቶች: ${summary.total}" else "Notes scanned: ${summary.total}",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (isAm) "ትክክለኛ: ${summary.genuineCount} (${summary.genuineValue} ብር)" else "Genuine: ${summary.genuineCount} (${summary.genuineValue} ETB)",
+                        fontSize = 13.sp
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = if (isAm) "የተጭበረበረ: ${summary.counterfeitCount} (${summary.counterfeitValue} ብር)" else "Counterfeit: ${summary.counterfeitCount} (${summary.counterfeitValue} ETB)",
+                        color = if (summary.counterfeitCount > 0) EthioRed else Color.Unspecified,
+                        fontWeight = if (summary.counterfeitCount > 0) FontWeight.Bold else FontWeight.Normal,
+                        fontSize = 13.sp
+                    )
+                    if (summary.repeatedSerialCount > 0) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Repeated serial numbers: ${summary.repeatedSerialCount}. Either the same note was scanned twice, or one of them is fake.",
+                            color = EthioRed,
+                            fontSize = 11.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    HorizontalDivider()
+                    Spacer(modifier = Modifier.height(8.dp))
+                    batchEntries.forEachIndexed { index, entry ->
+                        val statusText = if (entry.isGenuine) "Genuine" else "FAKE"
+                        val serialText = if (entry.serial.isNotBlank()) entry.serial else "no serial"
+                        val repeatedText = if (entry.isRepeatedSerial) " (repeated)" else ""
+                        val lineText = "${index + 1}. ${entry.denomination} ETB • $statusText • ${(entry.confidence * 100).toInt()}% • $serialText$repeatedText"
+                        Text(
+                            text = lineText,
+                            color = if (entry.isGenuine) MaterialTheme.colorScheme.onSurface else EthioRed,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBatchSummary = false }) {
+                    Text(text = "OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    batchEntries.clear()
+                    showBatchSummary = false
+                }) {
+                    Text(
+                        text = if (isAm) "አጽዳ" else "Clear batch",
+                        color = EthioRed
+                    )
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -587,6 +702,100 @@ fun ScannerScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // BATCH MODE UI BAR
+                    val summary = summarizeBatch(batchEntries)
+                    if (!batchMode) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color(0x99000000),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0x44FFFFFF)),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .clickable { batchMode = true }
+                                    .testTag("batch_mode_toggle_chip")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(Icons.Default.Layers, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = if (isAm) "ብዙ ኖቶች" else "Batch mode",
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    } else {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color(0xCC000000),
+                            border = androidx.compose.foundation.BorderStroke(1.5.dp, EthioGreenFixed),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = if (isAm) "${summary.total} ኖቶች" else "${summary.total} notes",
+                                        color = Color.White,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "${summary.genuineCount} genuine • ${summary.counterfeitCount} fake",
+                                        color = if (summary.counterfeitCount > 0) Color(0xFFFF8A80) else Color(0xFFA0B0A0),
+                                        fontSize = 10.sp
+                                    )
+                                }
+
+                                Text(
+                                    text = "${summary.genuineValue} ETB",
+                                    color = EthioGreenFixed,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Button(
+                                        onClick = { showBatchSummary = true },
+                                        enabled = batchEntries.isNotEmpty(),
+                                        colors = ButtonDefaults.buttonColors(containerColor = EthioGreen),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier.height(36.dp)
+                                    ) {
+                                        Text(
+                                            text = if (isAm) "ጨርስ" else "Finish",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    IconButton(
+                                        onClick = { batchMode = false },
+                                        modifier = Modifier.size(36.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = "Close Batch", tint = Color.White)
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
                     // SAMPLE TEST DATASET STRIP
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
