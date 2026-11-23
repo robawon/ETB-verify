@@ -32,6 +32,16 @@ import com.example.presentation.components.DemoBadge
 import com.example.presentation.components.TopShieldBar
 import com.example.presentation.localization.LocalAppLanguage
 import com.example.ui.theme.*
+import androidx.compose.ui.platform.LocalContext
+import com.example.presentation.components.LocationPermissionStatus
+import com.example.presentation.components.PermissionNotice
+import com.example.presentation.components.getCurrentLatLng
+import com.example.presentation.components.hasLocationPermission
+import com.example.presentation.components.openAppSettings
+import com.example.presentation.components.rememberLocationPermissionRequester
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import com.example.presentation.components.TomTomMapView
 
 @Composable
 fun FraudMapScreen(
@@ -49,6 +59,53 @@ fun FraudMapScreen(
     var selectedFilter by remember { mutableStateOf("All Notes") }
     var selectedHotspot by remember { mutableStateOf<HotspotZone?>(hotspots.firstOrNull()) }
     var searchQuery by remember { mutableStateOf("Merkato, Addis Ababa") }
+
+    // --- Location (My Location button) ---
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var myLocation by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var locationProblem by remember { mutableStateOf<String?>(null) }
+    var locationPermanentlyDenied by remember { mutableStateOf(false) }
+    var isLocating by remember { mutableStateOf(false) }
+
+    fun locateMe() {
+        scope.launch {
+            isLocating = true
+            val result = withTimeoutOrNull(10_000) { getCurrentLatLng(context) }
+            isLocating = false
+            if (result != null) {
+                myLocation = result
+                locationProblem = null
+                locationPermanentlyDenied = false
+            } else {
+                locationProblem = if (isAm) {
+                    "አካባቢዎን ማግኘት አልተቻለም። አካባቢ (GPS) መብራቱን ያረጋግጡ።"
+                } else {
+                    "Couldn't get your location. Make sure location (GPS) is turned on."
+                }
+            }
+        }
+    }
+
+    val deniedMessage = if (isAm) {
+        "አካባቢ ፈቃድ አልተሰጠም። ኢቲቢ ቬሪፋይ የተጠረጠረ ብር የተገኘበትን ቦታ ለመመዝገብ አካባቢዎን ይጠቀማል።"
+    } else {
+        "Location access was denied. ETB Verify uses your location to tag where a suspicious note was found."
+    }
+
+    val requestLocation = rememberLocationPermissionRequester { status ->
+        when (status) {
+            LocationPermissionStatus.GRANTED -> locateMe()
+            LocationPermissionStatus.DENIED -> {
+                locationPermanentlyDenied = false
+                locationProblem = deniedMessage
+            }
+            LocationPermissionStatus.PERMANENTLY_DENIED -> {
+                locationPermanentlyDenied = true
+                locationProblem = deniedMessage
+            }
+        }
+    }
 
     val infiniteTransition = rememberInfiniteTransition(label = "radar_sweep")
     val sweepAngle by infiniteTransition.animateFloat(
@@ -252,6 +309,12 @@ fun FraudMapScreen(
                             Text("Bole: 2 Reports", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                     }
+                    // Real TomTom map (centred on the user's GPS position when known)
+                    TomTomMapView(
+                        centerLat = myLocation?.first ?: 9.0320,
+                        centerLng = myLocation?.second ?: 38.7420,
+                        modifier = Modifier.fillMaxSize()
+                    )
 
                     // Floating Controls on Right Side (Layers, GPS, Traffic Light)
                     Column(
@@ -270,7 +333,11 @@ fun FraudMapScreen(
                         }
 
                         FloatingActionButton(
-                            onClick = { },
+                            onClick = {
+                                if (!isLocating) {
+                                    if (hasLocationPermission(context)) locateMe() else requestLocation()
+                                }
+                            },
                             containerColor = SurfaceContainerLowest,
                             contentColor = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.size(38.dp)
@@ -318,6 +385,47 @@ fun FraudMapScreen(
                 }
             }
 
+            // Location status (My Location button)
+            if (isLocating || myLocation != null || locationProblem != null) {
+                item {
+                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                        if (isLocating) {
+                            Text(
+                                text = if (isAm) "አካባቢዎን በማግኘት ላይ…" else "Finding your location…",
+                                fontSize = 12.sp
+                            )
+                        }
+                        myLocation?.let { (lat, lng) ->
+                            Text(
+                                text = (if (isAm) "የእርስዎ አካባቢ: " else "Your location: ") +
+                                        "%.5f, %.5f".format(lat, lng),
+                                color = EthioGreen,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        locationProblem?.let { problem ->
+                            PermissionNotice(
+                                title = if (isAm) "አካባቢ ያስፈልጋል" else "Location access needed",
+                                message = problem,
+                                buttonText = if (locationPermanentlyDenied) {
+                                    if (isAm) "ቅንብሮችን ክፈት" else "Open Settings"
+                                } else {
+                                    if (isAm) "ድጋሚ ሞክር" else "Try again"
+                                },
+                                onButtonClick = {
+                                    when {
+                                        locationPermanentlyDenied -> openAppSettings(context)
+                                        hasLocationPermission(context) -> locateMe()
+                                        else -> requestLocation()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+            }
             // Nearby Incident Feed Header
             item {
                 Row(

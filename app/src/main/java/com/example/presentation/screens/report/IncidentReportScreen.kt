@@ -31,7 +31,14 @@ import com.example.presentation.localization.LocalAppLanguage
 import com.example.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalContext
+import com.example.presentation.components.LocationPermissionStatus
+import com.example.presentation.components.PermissionNotice
+import com.example.presentation.components.getCurrentLatLng
+import com.example.presentation.components.hasLocationPermission
+import com.example.presentation.components.openAppSettings
+import com.example.presentation.components.rememberLocationPermissionRequester
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Composable screen for submitting an incident report about a counterfeit banknote.
@@ -58,6 +65,57 @@ fun IncidentReportScreen(
     var isSuccess by remember { mutableStateOf(false) }
     var isBuildingPdf by remember { mutableStateOf(false) }
 
+    // --- Real GPS for the report ---
+    val context = LocalContext.current
+    var gpsLocation by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var locationProblem by remember { mutableStateOf<String?>(null) }
+    var locationPermanentlyDenied by remember { mutableStateOf(false) }
+    var isLocating by remember { mutableStateOf(false) }
+
+    fun locateMe() {
+        coroutineScope.launch {
+            isLocating = true
+            val result = withTimeoutOrNull(10_000) { getCurrentLatLng(context) }
+            isLocating = false
+            if (result != null) {
+                gpsLocation = result
+                locationProblem = null
+                locationPermanentlyDenied = false
+            } else {
+                locationProblem = if (isAm) {
+                    "አካባቢዎን ማግኘት አልተቻለም። አካባቢ (GPS) መብራቱን ያረጋግጡ። ያለ እሱም ሪፖርት ማስገባት ይችላሉ።"
+                } else {
+                    "Couldn't get your location. Make sure location (GPS) is turned on. You can still submit without it."
+                }
+            }
+        }
+    }
+
+    val deniedMessage = if (isAm) {
+        "አካባቢ ፈቃድ አልተሰጠም። ሪፖርቱ ከቦታ መረጃ ውጭ ይላካል። ያለ እሱም ሪፖርት ማስገባት ይችላሉ።"
+    } else {
+        "Location access was denied, so this report will not carry a GPS tag. You can still submit it."
+    }
+
+    val requestLocation = rememberLocationPermissionRequester { status ->
+        when (status) {
+            LocationPermissionStatus.GRANTED -> locateMe()
+            LocationPermissionStatus.DENIED -> {
+                locationPermanentlyDenied = false
+                locationProblem = deniedMessage
+            }
+            LocationPermissionStatus.PERMANENTLY_DENIED -> {
+                locationPermanentlyDenied = true
+                locationProblem = deniedMessage
+            }
+        }
+    }
+
+    // Ask once when the screen opens
+    LaunchedEffect(Unit) {
+        if (hasLocationPermission(context)) locateMe() else requestLocation()
+    }
+
     Scaffold(
         topBar = {
             TopShieldBar(
@@ -83,8 +141,8 @@ fun IncidentReportScreen(
                                 serialNumber = serialNumber.ifBlank { "UNKNOWN" },
                                 riskLevel = "CRITICAL",
                                 subCity = subCity,
-                                latitude = 9.0345,
-                                longitude = 38.7360,
+                                latitude = gpsLocation?.first ?: 9.0345,
+                                longitude = gpsLocation?.second ?: 38.7360,
                                 notes = notes,
                                 isAnonymous = isAnonymous
                             )
@@ -310,11 +368,59 @@ fun IncidentReportScreen(
                     OutlinedTextField(
                         value = subCity,
                         onValueChange = { subCity = it },
-                        placeholder = { Text("e.g. neighborhood or market name") },
-                        singleLine = true,
+
+                        placeholder = { Text("e.g. Merkato, Shema Tera") },
+                        leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = EthioGreen) },
+                        trailingIcon = {
+                            Surface(
+                                color = BadgeAuthenticBg,
+                                shape = RoundedCornerShape(6.dp),
+                                modifier = Modifier.padding(end = 8.dp)
+                            ) {
+                                Text(
+                                    if (gpsLocation != null) "GPS Tagged" else "No GPS",
+                                    color = if (gpsLocation != null) EthioGreen else EthioRed,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(4.dp)
+                                )                            }
+                        },
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth().testTag("report_subcity_input")
                     )
+                    if (isLocating) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(if (isAm) "አካባቢዎን በማግኘት ላይ…" else "Finding your location…", fontSize = 11.sp)
+                    }
+                    gpsLocation?.let { (lat, lng) ->
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = (if (isAm) "መጋጠሚያ: " else "Coordinates: ") + "%.5f, %.5f".format(lat, lng),
+                            color = EthioGreen,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    locationProblem?.let { problem ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        PermissionNotice(
+                            title = if (isAm) "አካባቢ ያስፈልጋል" else "Location access needed",
+                            message = problem,
+                            buttonText = if (locationPermanentlyDenied) {
+                                if (isAm) "ቅንብሮችን ክፈት" else "Open Settings"
+                            } else {
+                                if (isAm) "ድጋሚ ሞክር" else "Try again"
+                            },
+                            onButtonClick = {
+                                when {
+                                    locationPermanentlyDenied -> openAppSettings(context)
+                                    hasLocationPermission(context) -> locateMe()
+                                    else -> requestLocation()
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
 
                 // Notes / Description
