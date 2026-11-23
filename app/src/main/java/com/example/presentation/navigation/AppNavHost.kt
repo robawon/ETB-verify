@@ -1,6 +1,9 @@
 package com.example.presentation.navigation
 
 import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -35,9 +38,9 @@ fun AppNavHost(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val scans by scanRepo.allScans.collectAsState(initial = emptyList())
-    val totalCount by scanRepo.totalCount.collectAsState(initial = 34)
-    val genuineCount by scanRepo.genuineCount.collectAsState(initial = 32)
-    val counterfeitCount by scanRepo.counterfeitCount.collectAsState(initial = 2)
+    val totalCount by scanRepo.totalCount.collectAsState(initial = 0)
+    val genuineCount by scanRepo.genuineCount.collectAsState(initial = 0)
+    val counterfeitCount by scanRepo.counterfeitCount.collectAsState(initial = 0)
 
     var currentInspectionResult by remember {
         mutableStateOf<ClassificationResult?>(null)
@@ -133,23 +136,24 @@ fun AppNavHost(
         }
 
         composable(Routes.RESULT) {
-            val result = currentInspectionResult ?: ClassificationResult(
-                label = "genuine_200_etb",
-                isGenuine = true,
-                denomination = 200,
-                confidence = 0.987f,
-                serialNumber = "FJ 0302758"
-            )
-            InspectionResultScreen(
-                result = result,
-                onScanNext = {
-                    navController.navigate(Routes.SCANNER) {
-                        popUpTo(Routes.HOME)
-                    }
-                },
-                onBroadcastHeatmap = { navController.navigate(Routes.FRAUD_MAP) },
-                onBackClick = { navController.popBackStack() }
-            )
+            val result = currentInspectionResult
+            if (result == null) {
+                LaunchedEffect(Unit) {
+                    navController.popBackStack()
+                }
+                Box(modifier = Modifier.fillMaxSize())
+            } else {
+                InspectionResultScreen(
+                    result = result,
+                    onScanNext = {
+                        navController.navigate(Routes.SCANNER) {
+                            popUpTo(Routes.HOME)
+                        }
+                    },
+                    onBroadcastHeatmap = { navController.navigate(Routes.FRAUD_MAP) },
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
         }
 
         composable(Routes.MANUAL_GUIDE) {

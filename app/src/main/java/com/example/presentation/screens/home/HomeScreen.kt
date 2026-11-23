@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.data.local.ScanRecordEntity
 import com.example.presentation.components.BottomShieldNavigation
+import com.example.presentation.components.DemoBadge
 import com.example.presentation.components.StatusBadge
 import com.example.presentation.components.TopShieldBar
 import com.example.presentation.localization.LocalAppLanguage
@@ -189,12 +190,19 @@ fun HomeScreen(
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (isAm) "አስቸኳይ ማስጠንቀቂያ • መርካቶ ቀጠና" else "CRITICAL ALERT • Merkato Zone",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = EthioRed
-                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = if (isAm) "አስቸኳይ ማስጠንቀቂያ • መርካቶ ቀጠና" else "CRITICAL ALERT • Merkato Zone",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = EthioRed
+                                    )
+                                    DemoBadge()
+                                }
                                 Text(
                                     text = if (isAm) "የተጭበረበረ 200 ብር በስርጭት ላይ ይገኛል" else "Counterfeit 200 ETB In Circulation",
                                     fontSize = 14.sp,

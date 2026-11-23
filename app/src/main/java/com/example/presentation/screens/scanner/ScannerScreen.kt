@@ -276,7 +276,6 @@ fun ScannerScreen(
             confidence = 0f,
             serialNumber = "",
             defects = emptyList(),
-            verifiedSecurityFeaturesCount = 0,
             rawLabel = "uncertain",
             allProbabilities = emptyMap(),
             isUncertain = true,
@@ -624,7 +623,7 @@ fun ScannerScreen(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "AI ACTIVE • 60 FPS",
+                                text = if (classifier.isModelLoaded()) "AI READY" else "AI MODEL MISSING",
                                 color = Color(0xFF00FF66),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold

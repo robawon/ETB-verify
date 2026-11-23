@@ -2,6 +2,7 @@ package com.example.presentation.screens.result
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -13,7 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,33 +25,29 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
 import com.example.domain.model.ClassificationResult
 import com.example.domain.model.formatModelLabel
-import com.example.presentation.components.TopShieldBar
-import com.example.presentation.localization.LocalAppLanguage
-import com.example.ui.theme.*
-import android.widget.Toast
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
-import com.example.presentation.voice.VerdictSpeaker
-import com.example.presentation.voice.buildSpokenVerdict
-import androidx.compose.runtime.rememberCoroutineScope
 import com.example.domain.report.ReportData
 import com.example.domain.report.buildReportPdf
 import com.example.domain.report.shareReportPdf
+import com.example.presentation.components.TopShieldBar
+import com.example.presentation.localization.LocalAppLanguage
+import com.example.presentation.voice.VerdictSpeaker
+import com.example.presentation.voice.buildSpokenVerdict
+import com.example.ui.theme.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
- * Composable screen displaying the detailed forensic audit and classification result for a scanned banknote.
+ * Composable screen displaying the detailed AI screening result and forensic audit for a scanned banknote.
  */
 @Composable
 fun InspectionResultScreen(
@@ -81,7 +78,7 @@ fun InspectionResultScreen(
         topBar = {
             TopShieldBar(
                 title = if (isAm) "የፍተሻ ትንታኔ ሪፖርት" else "Inspection Analysis Report",
-                subtitle = "CW-NBE-2026-X9 • LIVE AUDIT",
+                subtitle = if (isAm) "የAI ፍተሻ ውጤት" else "AI screening result",
                 showBack = true,
                 onBackClick = onBackClick
             )
@@ -130,7 +127,7 @@ fun InspectionResultScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Live Cryptographic Audit Pill
+            // Live Screening Pill
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -142,7 +139,11 @@ fun InspectionResultScreen(
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
-                            text = if (isGenuine) "ETB VERIFY LIVE CRYPTOGRAPHIC AUDIT" else "HIGH-LEVEL FRAUD THREAT ALERT",
+                            text = if (isGenuine) {
+                                if (isAm) "የ AI ፍተሻ፡ ትክክለኛ ሊሆን ይችላል" else "AI SCREENING: LIKELY GENUINE"
+                            } else {
+                                if (isAm) "የ AI ፍተሻ፡ ሀሰተኛ ሊሆን ይችላል" else "AI SCREENING: LIKELY COUNTERFEIT"
+                            },
                             color = if (isGenuine) EthioGreen else EthioRed,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -150,7 +151,7 @@ fun InspectionResultScreen(
                         )
                     }
                     Text(
-                        text = "CW-NBE-2026",
+                        text = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(Date(result.timestamp)),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = MaterialTheme.colorScheme.outline
@@ -218,13 +219,13 @@ fun InspectionResultScreen(
                             Spacer(modifier = Modifier.height(14.dp))
 
                             Text(
-                                text = "Ethiopian Birr ${result.denomination} • Series 2020 – Current",
+                                text = "Ethiopian Birr ${result.denomination}",
                                 color = Color.White,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "National Bank of Ethiopia (NBE) Certified Vault Hash",
+                                text = if (isAm) "በመሣሪያው ላይ ባለው የ AI ሞዴል የተረጋገጠ" else "Checked by the on-device AI model",
                                 color = Color(0xFFE0F2E9),
                                 fontSize = 12.sp
                             )
@@ -308,7 +309,6 @@ fun InspectionResultScreen(
                                         Text("HIGH-LEVEL FRAUD THREAT", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
-                                Text("SEC-ALERT #ET-2026-8409", color = Color(0xFFFFCDD2), fontSize = 10.sp)
                             }
 
                             Spacer(modifier = Modifier.height(14.dp))
@@ -326,7 +326,7 @@ fun InspectionResultScreen(
                                 color = Color(0xFFFFCDD2)
                             )
                             Text(
-                                text = "Ethiopian Birr ${result.denomination} • Series 2020 Failed Verification",
+                                text = if (isAm) "የኢትዮጵያ ብር ${result.denomination} • በ AI ሞዴል የተለየ" else "Ethiopian Birr ${result.denomination} • Flagged by the AI model",
                                 fontSize = 12.sp,
                                 color = Color(0xFFFFCDD2)
                             )
@@ -345,7 +345,7 @@ fun InspectionResultScreen(
                                     Column(modifier = Modifier.padding(10.dp)) {
                                         Text("COUNTERFEIT RISK", color = Color(0xFFFFCDD2), fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                         Text("${(result.confidence * 100).toInt()}%", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-                                        Text("Neural Forensic Failure", color = Color(0xFFFFCDD2), fontSize = 10.sp)
+                                        Text(if (isAm) "የሞዴል እርግጠኛነት" else "Model confidence", color = Color(0xFFFFCDD2), fontSize = 10.sp)
                                     }
                                 }
 
@@ -355,9 +355,9 @@ fun InspectionResultScreen(
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Column(modifier = Modifier.padding(10.dp)) {
-                                        Text("NBE REGISTRY STATUS", color = Color(0xFFFFCDD2), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                                        Text("ⓧ Unregistered", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                        Text("Tampered Specimen Hash", color = Color(0xFFFFCDD2), fontSize = 10.sp)
+                                        Text(if (isAm) "መለያ ቁጥር" else "SERIAL NUMBER", color = Color(0xFFFFCDD2), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        Text(result.serialNumber.ifBlank { "Not detected" }, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                        Text(if (isAm) "ከፎቶው የተነበበ (OCR)" else "Read from the photo (OCR)", color = Color(0xFFFFCDD2), fontSize = 10.sp)
                                     }
                                 }
                             }
@@ -493,7 +493,6 @@ fun InspectionResultScreen(
                                     fontSize = 13.sp
                                 )
                             }
-                            Text("Spectral Resolution 1200 DPI", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline)
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
@@ -544,7 +543,7 @@ fun InspectionResultScreen(
                                         Icon(Icons.Default.Error, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            "Counterfeit Note Detected - Does Not Match Official NBE Security Standards",
+                                            text = if (isAm) "በ AI ሞዴል እንደ ሀሰተኛ ተለይቷል። እባክዎ የደህንነት ምልክቶችን በእጅ ይፈትሹ።" else "Flagged as counterfeit by the AI model. Please check the security features by hand.",
                                             color = Color.White,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
@@ -565,36 +564,6 @@ fun InspectionResultScreen(
                             Column {
                                 Text("IDENTIFIED SERIAL SERIES", fontSize = 10.sp, color = MaterialTheme.colorScheme.outline, fontWeight = FontWeight.Bold)
                                 Text(result.serialNumber.ifBlank { "Not detected" }, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                            }
-
-                            if (isGenuine) {
-                                Surface(
-                                    color = Color(0xFFE8F5E9),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Default.Check, contentDescription = null, tint = EthioGreen, modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("NBE Registered", color = EthioGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            } else {
-                                Surface(
-                                    color = Color(0xFFFFEBEE),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(Icons.Default.Close, contentDescription = null, tint = EthioRed, modifier = Modifier.size(12.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text("Duplicated Serial Defect", color = EthioRed, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
                             }
                         }
                     }
@@ -757,6 +726,20 @@ fun InspectionResultScreen(
                         }
                     }
                 }
+            }
+
+            // Disclaimer Item
+            item {
+                Text(
+                    text = if (isAm)
+                        "ይህ የAI የፍተሻ ውጤት ነው፤ በኢትዮጵያ ብሔራዊ ባንክ የተረጋገጠ ማረጋገጫ አይደለም። ጥርጣሬ ካለ የደህንነት ምልክቶችን በእጅ ይፈትሹ ወይም ባንክ ይጠይቁ。"
+                    else
+                        "This is an AI screening result, not an official National Bank of Ethiopia verification. If in doubt, check the security features by hand or ask a bank.",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.outline,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)
+                )
             }
         }
     }

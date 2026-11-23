@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.repository.IntelligenceRepository
 import com.example.presentation.components.BottomShieldNavigation
+import com.example.presentation.components.DemoBadge
 import com.example.presentation.components.TopShieldBar
 import com.example.presentation.localization.LocalAppLanguage
 import com.example.ui.theme.*
@@ -68,6 +69,15 @@ fun IntelligenceScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    DemoBadge()
+                }
+            }
+
             // Syndicate Flag Header Card
             item {
                 Surface(

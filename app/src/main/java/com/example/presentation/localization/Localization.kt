@@ -31,7 +31,7 @@ object Loc {
     fun appTitle(isAm: Boolean) = if (isAm) "ETB verify • የኢትዮጵያ ብር ማረጋገጫ" else "ETB verify"
     fun appSubtitle(isAm: Boolean) = if (isAm) "የኢትዮጵያ ብር የጸጥታና ትክክለኛነት ማረጋገጫ ስርዓት" else "National Currency Verification & Intelligence"
     fun federalSuite(isAm: Boolean) = if (isAm) "ብሔራዊ የፍተሻ ስርዓት" else "FEDERAL INSPECTION SUITE"
-    fun nbeCore(isAm: Boolean) = if (isAm) "የኢትዮጵያ ብሔራዊ ባንክ AI" else "NBE-AI CORE 4.2"
+    fun nbeCore(isAm: Boolean) = if (isAm) "ካውንተርዎች AI" else "CounterWatch AI"
     fun publicScanner(isAm: Boolean) = if (isAm) "የህዝብ ብር ማረጋገጫ ስካነር" else "ETB verify Public Scanner"
     fun noAccountReq(isAm: Boolean) = if (isAm) "ፈጣን የብር ማረጋገጫ • መለያ አያስፈልግም" else "Instant AI Banknote Authentication • No Account Required"
     fun freeService(isAm: Boolean) = if (isAm) "ነፃ የህዝብ አገልግሎት • ለሁሉም ክፍት" else "Free Public Service • Open for all citizens & merchants"
@@ -51,7 +51,7 @@ object Loc {
     fun fraudMap(isAm: Boolean) = if (isAm) "የአደጋ ካርታ" else "Fraud Map"
     fun fraudMapSub(isAm: Boolean) = if (isAm) "የአዲስ አበባ አደጋ ቀጠናዎች ራዳር" else "Live Addis Ababa hotspot radar & telemetry"
     fun auditArchive(isAm: Boolean) = if (isAm) "የተመረመሩ ማህደር" else "Audit Archive"
-    fun auditArchiveSub(isAm: Boolean) = if (isAm) "34 በምስጠራ የተረጋገጡ ፍተሻዎች" else "34 Cryptographically Signed Scans"
+    fun auditArchiveSub(isAm: Boolean) = if (isAm) "በምስጠራ የተረጋገጡ ፍተሻዎች" else "Cryptographically Signed Scans"
     fun viewAll(isAm: Boolean) = if (isAm) "ሁሉንም እይ" else "View All"
 
     // Telemetry
@@ -71,10 +71,10 @@ object Loc {
     // Inspection
     fun genuineBanknote(isAm: Boolean) = if (isAm) "ትክክለኛ የኢትዮጵያ ብር" else "GENUINE BANKNOTE"
     fun counterfeitDetected(isAm: Boolean) = if (isAm) "የተጭበረበረ ብር ተገኝቷል!" else "COUNTERFEIT DETECTED"
-    fun certifiedHash(isAm: Boolean) = if (isAm) "የኢትዮጵያ ብሔራዊ ባንክ (NBE) የተረጋገጠ" else "National Bank of Ethiopia (NBE) Certified Vault Hash"
+    fun certifiedHash(isAm: Boolean) = if (isAm) "በመሣሪያው ላይ ባለው የ AI ሞዴል የተረጋገጠ" else "Checked by on-device AI model"
     fun highAuthenticity(isAm: Boolean) = if (isAm) "ከፍተኛ ትክክለኛነት ምዘና" else "High Authenticity Rating"
     fun counterfeitRisk(isAm: Boolean) = if (isAm) "የማጭበርበር ስጋት" else "Counterfeit Risk"
-    fun nbeStatus(isAm: Boolean) = if (isAm) "የNBE መዝገብ ሁኔታ" else "NBE Registry Status"
+    fun nbeStatus(isAm: Boolean) = if (isAm) "የሞዴል ሁኔታ" else "AI Model Status"
     fun scanNext(isAm: Boolean) = if (isAm) "ቀጣዩን ብር ይመርምሩ" else "Scan Next Banknote"
     fun callPolice(isAm: Boolean) = if (isAm) "ለፌዴራል ፖሊስ ይደውሉ (991 / 8044)" else "Call Federal Police Hotline (991 / 8044)"
     fun broadcastHeatmap(isAm: Boolean) = if (isAm) "ለቀጥታ ካርታው ሪፖርት አድርግ" else "Broadcast to Live Fraud Heatmap"

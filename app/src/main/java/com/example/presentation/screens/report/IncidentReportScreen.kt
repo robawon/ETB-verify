@@ -58,7 +58,7 @@ fun IncidentReportScreen(
 
     var denomination by remember { mutableIntStateOf(initialDenom) }
     var serialNumber by remember { mutableStateOf(initialSerial) }
-    var subCity by remember { mutableStateOf("Merkato, Addis Ketema") }
+    var subCity by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
     var isAnonymous by remember { mutableStateOf(true) }
     var isSubmitting by remember { mutableStateOf(false) }
@@ -354,7 +354,7 @@ fun IncidentReportScreen(
                     OutlinedTextField(
                         value = serialNumber,
                         onValueChange = { serialNumber = it.uppercase() },
-                        placeholder = { Text("e.g. FJ 0302758") },
+                        placeholder = { Text("e.g. AB 1234567") },
                         singleLine = true,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth().testTag("report_serial_input")
