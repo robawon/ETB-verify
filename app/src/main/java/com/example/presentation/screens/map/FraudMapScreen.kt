@@ -28,6 +28,7 @@ import com.example.data.repository.IntelligenceRepository
 import com.example.domain.model.HotspotZone
 import com.example.domain.model.RiskLevel
 import com.example.presentation.components.BottomShieldNavigation
+import com.example.presentation.components.DemoBadge
 import com.example.presentation.components.TopShieldBar
 import com.example.presentation.localization.LocalAppLanguage
 import com.example.ui.theme.*
@@ -91,6 +92,19 @@ fun FraudMapScreen(
             // Search Bar & Filters
             item {
                 Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isAm) "የአደጋ ራዳር" else "Hotspot Radar",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                        DemoBadge()
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
@@ -465,7 +479,7 @@ fun FraudMapScreen(
                 }
             }
 
-            // NBE Intelligence Sync Banner
+            // Community Reports Banner
             item {
                 Surface(
                     shape = RoundedCornerShape(14.dp),
@@ -482,9 +496,17 @@ fun FraudMapScreen(
                         Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFF1976D2), modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text("National Bank of Ethiopia Intelligence Sync", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF0D47A1))
                             Text(
-                                "Automated cluster analysis indicates illicit batch circulation concentrates along major light-rail commuter arteries during evening market hours.",
+                                text = if (isAm) "የማህበረሰብ ሪፖርቶች (የናሙና መረጃ)" else "Community reports (demo data)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color(0xFF0D47A1)
+                            )
+                            Text(
+                                text = if (isAm)
+                                    "የተሰበሰቡ ሪፖርቶች እንደሚያሳዩት ህገ-ወጥ የብር ዝውውር በዋና ዋና የመጓጓዣ መስመሮች ላይ ይስተዋላል።"
+                                else
+                                    "Automated cluster analysis indicates illicit batch circulation concentrates along major light-rail commuter arteries during evening market hours.",
                                 fontSize = 11.sp,
                                 lineHeight = 15.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant

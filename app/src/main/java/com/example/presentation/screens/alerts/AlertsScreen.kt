@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import com.example.data.repository.IntelligenceRepository
 import com.example.domain.model.RiskLevel
 import com.example.presentation.components.BottomShieldNavigation
+import com.example.presentation.components.DemoBadge
 import com.example.presentation.components.TopShieldBar
 import com.example.presentation.localization.LocalAppLanguage
 import com.example.ui.theme.*
@@ -70,6 +71,15 @@ fun AlertsScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    DemoBadge()
+                }
+            }
+
             // Geofence status card
             item {
                 Surface(

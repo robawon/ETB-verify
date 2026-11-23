@@ -44,54 +44,8 @@ abstract class AppDatabase : RoomDatabase() {
         private suspend fun seedInitialData(database: AppDatabase) {
             val now = System.currentTimeMillis()
             val hour = 3600_000L
-            val day = 86400_000L
 
-            database.scanDao().insertScan(
-                ScanRecordEntity(
-                    denomination = 200,
-                    isGenuine = true,
-                    confidence = 0.987f,
-                    serialNumber = "AA8492019",
-                    timestamp = now - 15 * 60_000,
-                    locationName = "Bole Medhanealem",
-                    defectsSummary = "None • All security layers verified"
-                )
-            )
-            database.scanDao().insertScan(
-                ScanRecordEntity(
-                    denomination = 200,
-                    isGenuine = false,
-                    confidence = 0.994f,
-                    serialNumber = "BD1029384",
-                    timestamp = now - day,
-                    locationName = "Merkato Market",
-                    defectsSummary = "UV Ink Missing • Flat Offset Cotton Defect"
-                )
-            )
-            database.scanDao().insertScan(
-                ScanRecordEntity(
-                    denomination = 100,
-                    isGenuine = true,
-                    confidence = 0.991f,
-                    serialNumber = "EK7731902",
-                    timestamp = now - 2 * day,
-                    locationName = "Piassa Branch",
-                    defectsSummary = "Windowed thread & intaglio micro-emboss match"
-                )
-            )
-            database.scanDao().insertScan(
-                ScanRecordEntity(
-                    denomination = 200,
-                    isGenuine = true,
-                    confidence = 0.984f,
-                    serialNumber = "FJ0302758",
-                    timestamp = now - 3 * day,
-                    locationName = "Mexico Square Station",
-                    defectsSummary = "PEAK® & SPARK® optical tilt confirmed"
-                )
-            )
-
-            // Seed initial incident reports for the map & alerts
+            // Seed initial incident reports for the map & alerts (History remains empty of fake scans)
             database.incidentDao().insertIncident(
                 IncidentReportEntity(
                     denomination = 200,

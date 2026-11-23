@@ -14,7 +14,7 @@ data class ScanRecordEntity(
     val timestamp: Long = System.currentTimeMillis(),
     val latitude: Double = 9.0320,
     val longitude: Double = 38.7420,
-    val locationName: String = "Addis Ababa Central",
+    val locationName: String = "Location not recorded",
     val defectsSummary: String = "",
     val notes: String = "",
     val imageUri: String = ""

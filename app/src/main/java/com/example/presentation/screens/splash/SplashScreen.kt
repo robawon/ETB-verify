@@ -26,9 +26,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import com.example.presentation.localization.Loc
 import com.example.presentation.localization.LocalAppLanguage
 import com.example.ui.theme.*
 
+/**
+ * Composable screen displaying the app launch splash and AI model loading screen.
+ */
 @Composable
 fun SplashScreen(
     onLaunchScanner: () -> Unit,
@@ -93,7 +97,7 @@ fun SplashScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isAm) "የፌዴራል ፍተሻ ስርዓት" else "FEDERAL INSPECTION SUITE",
+                            text = if (isAm) "የፍተሻ ስርዓት" else "AI INSPECTION SUITE",
                             color = Color(0xFFFEDF10),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
@@ -118,7 +122,7 @@ fun SplashScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "NBE-AI CORE 4.2",
+                            text = Loc.nbeCore(isAm),
                             color = Color(0xFF6FDD79),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
@@ -153,7 +157,7 @@ fun SplashScreen(
                         modifier = Modifier.align(Alignment.BottomStart).padding(6.dp)
                     ) {
                         Text(
-                            text = "100 & 200 ETB VERIFIED",
+                            text = "100 & 200 ETB SCREENING",
                             color = Color.White,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -187,9 +191,9 @@ fun SplashScreen(
 
                 Text(
                     text = if (isAm)
-                        "የኢትዮጵያን ብር በሰው ሰራሽ አስተውሎትና በብሔራዊ የደህንነት ስርዓት ማረጋገጫ"
+                        "የኢትዮጵያን ብር በሰው ሰራሽ አስተውሎት እና በ AI ፍተሻ መጠበቅ"
                     else
-                        "Protecting Ethiopian Currency Through Artificial Intelligence & Sovereign Cryptographic Verification",
+                        "Protecting Ethiopian Currency Through Artificial Intelligence Screening",
                     color = Color(0xFFC0CDC0),
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center,
@@ -204,7 +208,7 @@ fun SplashScreen(
                     color = Color(0x33FFFFFF)
                 ) {
                     Text(
-                        text = "National Bank of Ethiopia • Federal Police Cyber Crime",
+                        text = "CounterWatch AI Screening Tool",
                         color = Color(0xFFEAF1FF),
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
@@ -273,7 +277,7 @@ fun SplashScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Loaded 2025 Banknotes (100 & 200 ETB)",
+                                text = "Loaded 100 & 200 ETB Models",
                                 color = Color(0xFFA0B0A0),
                                 fontSize = 11.sp
                             )
@@ -286,7 +290,7 @@ fun SplashScreen(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "TLS 1.3",
+                                    text = "On-Device",
                                     color = Color(0xFF6FDD79),
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
@@ -336,7 +340,7 @@ fun SplashScreen(
                 }
 
                 Text(
-                    text = "Official ETB verify Neural Engine • Version 2.4.0",
+                    text = "CounterWatch AI Screening Engine",
                     color = Color(0x88FFFFFF),
                     fontSize = 10.sp,
                     modifier = Modifier.padding(top = 4.dp)
