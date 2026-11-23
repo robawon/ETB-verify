@@ -110,6 +110,21 @@ fun AppNavHost(
                         )
                     }
                     navController.navigate(Routes.RESULT)
+                },
+                onBatchScanSaved = { result ->
+                    coroutineScope.launch {
+                        scanRepo.saveScan(
+                            ScanRecordEntity(
+                                denomination = result.denomination,
+                                isGenuine = result.isGenuine,
+                                confidence = result.confidence,
+                                serialNumber = result.serialNumber,
+                                timestamp = result.timestamp,
+                                locationName = result.locationName,
+                                defectsSummary = result.defects.joinToString(" • ")
+                            )
+                        )
+                    }
                 }
             )
         }
