@@ -36,8 +36,18 @@ import android.widget.Toast
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import com.example.presentation.voice.VerdictSpeaker
 import com.example.presentation.voice.buildSpokenVerdict
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.domain.report.ReportData
+import com.example.domain.report.buildReportPdf
+import com.example.domain.report.shareReportPdf
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Composable screen displaying the detailed forensic audit and classification result for a scanned banknote.
@@ -641,6 +651,60 @@ fun InspectionResultScreen(
                         Column {
                             Text("Broadcast to Live Fraud Heatmap", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             Text("Alert neighboring registered cashiers anonymously", color = Color(0xFFFFF9C4), fontSize = 10.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Share report as PDF button
+                    var isBuildingPdfResult by remember { mutableStateOf(false) }
+                    val coroutineScopeResult = rememberCoroutineScope()
+                    OutlinedButton(
+                        onClick = {
+                            if (isBuildingPdfResult) return@OutlinedButton
+                            isBuildingPdfResult = true
+                            coroutineScopeResult.launch(Dispatchers.IO) {
+                                try {
+                                    val reportData = ReportData(
+                                        denomination = result.denomination,
+                                        serialNumber = result.serialNumber,
+                                        locationText = result.locationName,
+                                        notes = result.defects.joinToString("; "),
+                                        isAnonymous = true,
+                                        aiVerdictCounterfeit = true,
+                                        aiConfidence = result.confidence,
+                                        timestamp = result.timestamp,
+                                        isAmharic = isAm
+                                    )
+                                    val pdfFile = buildReportPdf(context, reportData)
+                                    withContext(Dispatchers.Main) {
+                                        isBuildingPdfResult = false
+                                        shareReportPdf(context, pdfFile)
+                                    }
+                                } catch (_: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        isBuildingPdfResult = false
+                                        Toast.makeText(context, "Could not create the PDF", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp)
+                            .testTag("share_pdf_report_button")
+                    ) {
+                        if (isBuildingPdfResult) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Share, contentDescription = null)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = if (isAm) "ሪፖርቱን በPDF አጋራ" else "Share report as PDF",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
                         }
                     }
                 }
