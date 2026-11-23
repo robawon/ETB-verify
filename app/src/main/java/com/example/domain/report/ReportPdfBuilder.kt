@@ -2,9 +2,13 @@ package com.example.domain.report
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.os.Build
@@ -17,6 +21,7 @@ import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.min
 
 /**
  * Data class containing report information required to generate the PDF document.
@@ -30,8 +35,38 @@ data class ReportData(
     val aiVerdictCounterfeit: Boolean?,
     val aiConfidence: Float?,
     val timestamp: Long,
-    val isAmharic: Boolean
+    val isAmharic: Boolean,
+    val imagePath: String = ""
 )
+
+/**
+ * Calculates the optimal inSampleSize for decoding a bitmap to memory efficiently.
+ */
+private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int): Int {
+    val (height: Int, width: Int) = options.run { outHeight to outWidth }
+    var inSampleSize = 1
+    if (width > reqWidth || height > reqWidth) {
+        val halfWidth: Int = width / 2
+        val halfHeight: Int = height / 2
+        while ((halfWidth / inSampleSize) >= reqWidth && (halfHeight / inSampleSize) >= reqWidth) {
+            inSampleSize *= 2
+        }
+    }
+    return inSampleSize
+}
+
+/**
+ * Decodes a sample-sized bitmap from file path with a max target width.
+ */
+private fun decodeSampledBitmapFromFile(path: String, reqWidth: Int): Bitmap? {
+    val options = BitmapFactory.Options().apply {
+        inJustDecodeBounds = true
+    }
+    BitmapFactory.decodeFile(path, options)
+    options.inSampleSize = calculateInSampleSize(options, reqWidth)
+    options.inJustDecodeBounds = false
+    return BitmapFactory.decodeFile(path, options)
+}
 
 /**
  * Builds an A4 PDF report document from the provided ReportData and saves it to cache directory.
@@ -181,6 +216,51 @@ fun buildReportPdf(context: Context, data: ReportData): File {
         }, 70f))
     }
 
+    // Scan Photo Block
+    var decodedBitmap: Bitmap? = null
+    if (data.imagePath.isNotBlank()) {
+        val imgFile = File(data.imagePath)
+        if (imgFile.exists()) {
+            decodedBitmap = decodeSampledBitmapFromFile(imgFile.absolutePath, 800)
+            if (decodedBitmap != null) {
+                val imgMaxWidth = 300f
+                val imgMaxHeight = 200f
+                val bmpW = decodedBitmap.width.toFloat()
+                val bmpH = decodedBitmap.height.toFloat()
+                val scale = min(imgMaxWidth / bmpW, imgMaxHeight / bmpH)
+                val drawW = bmpW * scale
+                val drawH = bmpH * scale
+                val captionText = if (data.isAmharic) "በፍተሻው ወቅት የተነሳ ፎቶ" else "Photo taken by the app during the scan"
+                val blockHeight = drawH + 40f
+
+                blocks.add(Block({ canvas, y ->
+                    var cy = y
+                    canvas.drawText(if (data.isAmharic) "የፍተሻ ፎቶ" else "Scan Photo", margin, cy, headingPaint)
+                    cy += 18f
+
+                    val left = margin
+                    val top = cy
+                    val srcRect = Rect(0, 0, decodedBitmap.width, decodedBitmap.height)
+                    val destRect = RectF(left, top, left + drawW, top + drawH)
+                    canvas.drawBitmap(decodedBitmap, srcRect, destRect, null)
+
+                    val borderPaint = Paint().apply {
+                        style = Paint.Style.STROKE
+                        color = Color.GRAY
+                        strokeWidth = 1f
+                    }
+                    canvas.drawRect(destRect, borderPaint)
+
+                    cy += drawH + 4f
+                    val captionPaint = TextPaint(textPaint).apply { textSize = 9f; color = Color.GRAY }
+                    canvas.drawText(captionText, left, cy + 10f, captionPaint)
+
+                    blockHeight
+                }, blockHeight + 10f))
+            }
+        }
+    }
+
     // Block: Notes Section
     if (notesLayout != null) {
         blocks.add(Block({ canvas, y ->
@@ -195,7 +275,6 @@ fun buildReportPdf(context: Context, data: ReportData): File {
         }, 28f + notesLayout.height.toFloat()))
     }
 
-    data class PageAssignment(val blockIndex: Int, val startY: Float)
     val pageAssignments = mutableListOf<MutableList<Block>>()
     var currentPageBlocks = mutableListOf<Block>()
     var currentY = margin
@@ -254,6 +333,8 @@ fun buildReportPdf(context: Context, data: ReportData): File {
     pdfDocument.writeTo(outputStream)
     pdfDocument.close()
     outputStream.close()
+
+    decodedBitmap?.recycle()
 
     return file
 }

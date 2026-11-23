@@ -197,7 +197,8 @@ fun IncidentReportScreen(
                                             aiVerdictCounterfeit = scanResult?.let { !it.isGenuine },
                                             aiConfidence = scanResult?.confidence,
                                             timestamp = System.currentTimeMillis(),
-                                            isAmharic = isAm
+                                            isAmharic = isAm,
+                                            imagePath = scanResult?.imagePath ?: ""
                                         )
                                         val pdfFile = buildReportPdf(context, reportData)
                                         withContext(Dispatchers.Main) {

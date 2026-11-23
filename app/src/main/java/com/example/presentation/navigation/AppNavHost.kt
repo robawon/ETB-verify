@@ -13,6 +13,7 @@ import com.example.data.repository.ScanRepository
 import com.example.domain.classifier.BanknoteClassifier
 import com.example.domain.model.ClassificationResult
 import com.example.domain.ocr.BanknoteSerialOcr
+import com.example.domain.storage.deleteScanPhoto
 import com.example.presentation.screens.alerts.AlertsScreen
 import com.example.presentation.screens.analytics.IntelligenceScreen
 import com.example.presentation.screens.history.ScanHistoryScreen
@@ -78,7 +79,8 @@ fun AppNavHost(
                         confidence = scan.confidence,
                         serialNumber = scan.serialNumber,
                         timestamp = scan.timestamp,
-                        defects = if (scan.defectsSummary.isNotBlank()) listOf(scan.defectsSummary) else emptyList()
+                        defects = if (scan.defectsSummary.isNotBlank()) listOf(scan.defectsSummary) else emptyList(),
+                        imagePath = scan.imageUri
                     )
                     navController.navigate(Routes.RESULT)
                 }
@@ -111,7 +113,8 @@ fun AppNavHost(
                                 serialNumber = result.serialNumber,
                                 timestamp = result.timestamp,
                                 locationName = result.locationName,
-                                defectsSummary = result.defects.joinToString(" • ")
+                                defectsSummary = result.defects.joinToString(" • "),
+                                imageUri = result.imagePath
                             )
                         )
                     }
@@ -127,7 +130,8 @@ fun AppNavHost(
                                 serialNumber = result.serialNumber,
                                 timestamp = result.timestamp,
                                 locationName = result.locationName,
-                                defectsSummary = result.defects.joinToString(" • ")
+                                defectsSummary = result.defects.joinToString(" • "),
+                                imageUri = result.imagePath
                             )
                         )
                     }
@@ -212,6 +216,10 @@ fun AppNavHost(
                 scans = scans,
                 onDeleteScan = { id ->
                     coroutineScope.launch {
+                        val scanToDelete = scans.find { it.id == id }
+                        if (scanToDelete != null) {
+                            deleteScanPhoto(scanToDelete.imageUri)
+                        }
                         scanRepo.deleteScan(id)
                     }
                 },

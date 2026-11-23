@@ -23,7 +23,8 @@ data class ClassificationResult(
     val rawLabel: String = label,
     val allProbabilities: Map<String, Float> = emptyMap(),
     val isUncertain: Boolean = false,
-    val uncertainReason: String = ""
+    val uncertainReason: String = "",
+    val imagePath: String = ""
 ) {
     val formattedLabel: String
         get() = formatModelLabel(rawLabel.ifEmpty { label })

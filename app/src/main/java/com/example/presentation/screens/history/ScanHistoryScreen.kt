@@ -2,6 +2,7 @@ package com.example.presentation.screens.history
 
 import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +22,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.data.local.ScanRecordEntity
 import com.example.presentation.components.StatusBadge
 import com.example.presentation.components.TopShieldBar
@@ -29,6 +31,9 @@ import com.example.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
+/**
+ * Composable screen displaying past audit scan history records with filtering, search, and detail inspection.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScanHistoryScreen(
@@ -179,19 +184,36 @@ fun ScanHistoryScreen(
                                 modifier = Modifier.padding(14.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(if (scan.isGenuine) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        "${scan.denomination}",
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 15.sp,
-                                        color = if (scan.isGenuine) EthioGreen else EthioRed
+                                val photoFile = remember(scan.imageUri) {
+                                    if (scan.imageUri.isNotBlank()) java.io.File(scan.imageUri) else null
+                                }
+                                val hasPhoto = photoFile != null && photoFile.exists()
+
+                                if (hasPhoto) {
+                                    AsyncImage(
+                                        model = photoFile,
+                                        contentDescription = "Scan Thumbnail",
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .border(1.5.dp, if (scan.isGenuine) EthioGreen else EthioRed, RoundedCornerShape(10.dp))
                                     )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(if (scan.isGenuine) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            "${scan.denomination}",
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 15.sp,
+                                            color = if (scan.isGenuine) EthioGreen else EthioRed
+                                        )
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.width(12.dp))
@@ -258,6 +280,22 @@ fun ScanHistoryScreen(
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
+
+                val detailPhotoFile = remember(scan.imageUri) {
+                    if (scan.imageUri.isNotBlank()) java.io.File(scan.imageUri) else null
+                }
+                if (detailPhotoFile != null && detailPhotoFile.exists()) {
+                    AsyncImage(
+                        model = detailPhotoFile,
+                        contentDescription = "Scan Detail Photo",
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
 
                 Surface(
                     shape = RoundedCornerShape(12.dp),

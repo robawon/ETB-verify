@@ -54,6 +54,7 @@ import com.example.domain.model.ClassificationResult
 import com.example.domain.model.Denomination
 import com.example.domain.model.formatModelLabel
 import com.example.domain.ocr.BanknoteSerialOcr
+import com.example.domain.storage.saveScanPhoto
 import com.example.presentation.components.BottomShieldNavigation
 import com.example.presentation.localization.LocalAppLanguage
 import com.example.ui.theme.*
@@ -200,12 +201,17 @@ fun ScannerScreen(
                 targetDenomination = targetDenom
             )
 
+            val photoPath = if (!classification.isUncertain) {
+                saveScanPhoto(context, bitmap)
+            } else {
+                ""
+            }
             val extractedSerial = if (!classification.isUncertain) {
                 serialOcr.extractSerialNumber(bitmap)
             } else {
                 ""
             }
-            val finalResult = classification.copy(serialNumber = extractedSerial)
+            val finalResult = classification.copy(serialNumber = extractedSerial, imagePath = photoPath)
 
             withContext(Dispatchers.Main) {
                 liveDetectedResult = finalResult
