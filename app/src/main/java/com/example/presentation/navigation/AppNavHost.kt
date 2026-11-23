@@ -22,6 +22,9 @@ import com.example.presentation.screens.scanner.ScannerScreen
 import com.example.presentation.screens.splash.SplashScreen
 import kotlinx.coroutines.launch
 
+/**
+ * Composable navigation host managing app routing across screens.
+ */
 @Composable
 fun AppNavHost(
     navController: NavHostController,
@@ -169,8 +172,9 @@ fun AppNavHost(
 
         composable(Routes.REPORT) {
             IncidentReportScreen(
-                initialSerial = currentInspectionResult?.serialNumber ?: "BD1029384",
+                initialSerial = currentInspectionResult?.serialNumber ?: "",
                 initialDenom = currentInspectionResult?.denomination ?: 200,
+                scanResult = currentInspectionResult,
                 onSubmitReport = { report ->
                     scanRepo.reportIncident(report)
                 },

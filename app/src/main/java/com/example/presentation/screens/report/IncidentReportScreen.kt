@@ -1,5 +1,6 @@
 package com.example.presentation.screens.report
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,14 +16,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.IncidentReportEntity
+import com.example.domain.model.ClassificationResult
+import com.example.domain.report.ReportData
+import com.example.domain.report.buildReportPdf
+import com.example.domain.report.shareReportPdf
 import com.example.presentation.components.TopShieldBar
 import com.example.presentation.localization.LocalAppLanguage
 import com.example.ui.theme.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import com.example.presentation.components.LocationPermissionStatus
@@ -33,13 +40,18 @@ import com.example.presentation.components.openAppSettings
 import com.example.presentation.components.rememberLocationPermissionRequester
 import kotlinx.coroutines.withTimeoutOrNull
 
+/**
+ * Composable screen for submitting an incident report about a counterfeit banknote.
+ */
 @Composable
 fun IncidentReportScreen(
-    initialSerial: String = "BD1029384",
+    initialSerial: String = "",
     initialDenom: Int = 200,
+    scanResult: ClassificationResult? = null,
     onSubmitReport: suspend (IncidentReportEntity) -> Unit,
     onBackClick: () -> Unit
 ) {
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val langManager = LocalAppLanguage.current
     val isAm = langManager.isAmharic()
@@ -51,6 +63,7 @@ fun IncidentReportScreen(
     var isAnonymous by remember { mutableStateOf(true) }
     var isSubmitting by remember { mutableStateOf(false) }
     var isSuccess by remember { mutableStateOf(false) }
+    var isBuildingPdf by remember { mutableStateOf(false) }
 
     // --- Real GPS for the report ---
     val context = LocalContext.current
@@ -224,6 +237,53 @@ fun IncidentReportScreen(
                         ) {
                             Text("Return to Dashboard", color = Color.White, fontWeight = FontWeight.Bold)
                         }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        OutlinedButton(
+                            onClick = {
+                                if (isBuildingPdf) return@OutlinedButton
+                                isBuildingPdf = true
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    try {
+                                        val reportData = ReportData(
+                                            denomination = denomination,
+                                            serialNumber = serialNumber,
+                                            locationText = subCity,
+                                            notes = notes,
+                                            isAnonymous = isAnonymous,
+                                            aiVerdictCounterfeit = scanResult?.let { !it.isGenuine },
+                                            aiConfidence = scanResult?.confidence,
+                                            timestamp = System.currentTimeMillis(),
+                                            isAmharic = isAm
+                                        )
+                                        val pdfFile = buildReportPdf(context, reportData)
+                                        withContext(Dispatchers.Main) {
+                                            isBuildingPdf = false
+                                            shareReportPdf(context, pdfFile)
+                                        }
+                                    } catch (e: Exception) {
+                                        withContext(Dispatchers.Main) {
+                                            isBuildingPdf = false
+                                            Toast.makeText(context, "Could not create the PDF", Toast.LENGTH_LONG).show()
+                                        }
+                                    }
+                                }
+                            },
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (isBuildingPdf) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isAm) "ሪፖርቱን በPDF አጋራ" else "Share report as PDF",
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -257,24 +317,29 @@ fun IncidentReportScreen(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         listOf(200, 100, 50).forEach { denom ->
-                            val isSel = denomination == denom
+                            val isSelected = denomination == denom
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isSel) EthioRed else SurfaceContainerLow,
+                                color = if (isSelected) EthioRedContainer else SurfaceContainerLow,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isSelected) EthioRed else MaterialTheme.colorScheme.outlineVariant
+                                ),
                                 modifier = Modifier
                                     .weight(1f)
+                                    .clip(RoundedCornerShape(12.dp))
                                     .clickable { denomination = denom }
                                     .testTag("report_denom_$denom")
                             ) {
                                 Box(
-                                    modifier = Modifier.padding(vertical = 12.dp),
+                                    modifier = Modifier.padding(vertical = 10.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "$denom ETB",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 14.sp,
-                                        color = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface
+                                        text = "$denom ETB",
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSelected) EthioRed else MaterialTheme.colorScheme.onSurface,
+                                        fontSize = 13.sp
                                     )
                                 }
                             }
@@ -282,27 +347,28 @@ fun IncidentReportScreen(
                     }
                 }
 
-                // Suspect Serial Number
+                // Serial Number Field
                 item {
-                    Text("Suspect Serial Number", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (isAm) "መለያ ቁጥር (Serial Number)" else "Serial Number", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
                         value = serialNumber,
                         onValueChange = { serialNumber = it.uppercase() },
-                        placeholder = { Text("e.g. BD1029384") },
-                        leadingIcon = { Icon(Icons.Default.Pin, contentDescription = null, tint = EthioRed) },
+                        placeholder = { Text("e.g. FJ 0302758") },
+                        singleLine = true,
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth().testTag("suspect_serial_input")
+                        modifier = Modifier.fillMaxWidth().testTag("report_serial_input")
                     )
                 }
 
-                // Incident Location
+                // Location / Sub-city
                 item {
-                    Text("Incident Sub-City / Location", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (isAm) "ቦታ / ክፍለ ከተማ (Sub-City)" else "Location / Sub-City", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
                         value = subCity,
                         onValueChange = { subCity = it },
+
                         placeholder = { Text("e.g. Merkato, Shema Tera") },
                         leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = null, tint = EthioGreen) },
                         trailingIcon = {
@@ -320,7 +386,7 @@ fun IncidentReportScreen(
                                 )                            }
                         },
                         shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth().testTag("subcity_input")
+                        modifier = Modifier.fillMaxWidth().testTag("report_subcity_input")
                     )
                     if (isLocating) {
                         Spacer(modifier = Modifier.height(6.dp))
@@ -357,50 +423,46 @@ fun IncidentReportScreen(
                     }
                 }
 
-                // Optional Notes
+                // Notes / Description
                 item {
-                    Text("Inspection Notes / Observed Defects", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (isAm) "ተጨማሪ ማስታወሻዎች" else "Incident Notes", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(6.dp))
                     OutlinedTextField(
                         value = notes,
                         onValueChange = { notes = it },
-                        placeholder = { Text("Describe physical flaws: missing thread, blurry printing, slick texture...") },
-                        minLines = 3,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier.fillMaxWidth().testTag("notes_input")
+                        placeholder = { Text(if (isAm) "ማንኛውም ዝርዝር ሁኔታ..." else "Describe suspicious texture, watermarks, or transaction context...") },
+                        modifier = Modifier.fillMaxWidth().height(110.dp).testTag("report_notes_input"),
+                        shape = RoundedCornerShape(12.dp)
                     )
                 }
 
-                // Anonymous Mode Switch
+                // Anonymous Toggle
                 item {
                     Surface(
-                        shape = RoundedCornerShape(14.dp),
+                        shape = RoundedCornerShape(12.dp),
                         color = SurfaceContainerLowest,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceContainerHighest),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
-                            modifier = Modifier.padding(14.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
+                                Text(if (isAnonymous) "Anonymous Reporter" else "Public Reporter", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                 Text(
-                                    text = if (isAm) "ስም የማያሳይ ሪፖርት (Anonymous Mode)" else "Anonymous Reporting Mode",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                                Text(
-                                    text = "Protects identity. Device hardware tokens are cryptographically redacted before dispatch.",
+                                    text = if (isAnonymous) "Your identity is hidden from public ledgers." else "Your credentials will be registered.",
                                     fontSize = 11.sp,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    color = MaterialTheme.colorScheme.outline
                                 )
                             }
                             Switch(
                                 checked = isAnonymous,
                                 onCheckedChange = { isAnonymous = it },
-                                colors = SwitchDefaults.colors(checkedThumbColor = EthioGreen, checkedTrackColor = EthioGreenFixed),
-                                modifier = Modifier.testTag("anonymous_toggle")
+                                colors = SwitchDefaults.colors(checkedThumbColor = EthioRed)
                             )
                         }
                     }
